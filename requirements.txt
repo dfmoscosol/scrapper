@@ -1,0 +1,12 @@
+openai
+pandas
+numpy
+schedule
+time
+datetime
+psycopg2
+sqlalchemy
+bs4
+requests
+urllib
+re
