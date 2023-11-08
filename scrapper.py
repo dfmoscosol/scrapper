@@ -79,12 +79,13 @@ def extraer_cursos_coursera(cadenas):
         URL_BUSQUEDA = (
             f"{URL_BASE_COURSERA}{urllib.parse.quote(cadena, safe='')}&language=Spanish"
         )
+        print(URL_BUSQUEDA)
         pedido_obtenido = requests.get(URL_BUSQUEDA)
         pedido_obtenido.encoding = "utf-8"
         html_obtenido = pedido_obtenido.text
 
         # 2. "Parsear" ese HTML
-        soup = BeautifulSoup(html_obtenido, "html.parser", from_encoding="utf-8")
+        soup = BeautifulSoup(html_obtenido, "html.parser")
 
         # 3. Extraer el numero de paginas de la busqueda
         divs = soup.find_all("button", class_=["cds-paginationItem-default"])
@@ -103,9 +104,12 @@ def extraer_cursos_coursera(cadenas):
         else:
             paginas = 0
 
+        print(paginas)
+
         # 4.Extraer los cursos de todas las paginas
         for i in range(int(paginas)):
             URL_FINAL = f"{URL_BUSQUEDA}&page={i+1}"
+            print(URL_FINAL)
             pedido_obtenido_final = requests.get(URL_FINAL)
             pedido_obtenido_final.encoding = "utf-8"
             html_obtenido_final = pedido_obtenido_final.text
@@ -133,6 +137,7 @@ def extraer_cursos_coursera(cadenas):
                 else:
                     href = "N/A"
                 print(href)
+
                 # Obtener ofertante
                 p_ofertante = div.find(
                     "p",
@@ -153,22 +158,22 @@ def extraer_cursos_coursera(cadenas):
                     titulo = "N/A"
 
                 # Obtener puntuacion
-        puntuacion_p = div.find("p", class_="cds-119 css-11uuo4b cds-121")
-        if puntuacion_p:
-            puntuacion = puntuacion_p.get_text()
-        else:
-            puntuacion = "N/A"
+                puntuacion_p = div.find("p", class_="cds-119 css-11uuo4b cds-121")
+                if puntuacion_p:
+                    puntuacion = puntuacion_p.get_text()
+                else:
+                    puntuacion = "N/A"
 
-        if href.startswith("/learn"):
-            cursos.append(
-                {
-                    "titulo": titulo,
-                    "url": "https://www.coursera.org" + href,
-                    "url_img": urlimagen,
-                    "ofertante": ofertante,
-                    "puntuacion": puntuacion,
-                }
-            )
+                if href.startswith("/learn"):
+                    cursos.append(
+                        {
+                            "titulo": titulo,
+                            "url": "https://www.coursera.org" + href,
+                            "url_img": urlimagen,
+                            "ofertante": ofertante,
+                            "puntuacion": puntuacion,
+                        }
+                    )
 
     return cursos
 
@@ -588,7 +593,7 @@ def programar_tarea():
 
 
 if __name__ == "__main__":
-    programar_tarea()
+    print(extraer_cursos_coursera(cadenas_busqueda_pedagogica))
 
     while True:
         schedule.run_pending()
