@@ -593,7 +593,7 @@ def programar_tarea():
 
 
 if __name__ == "__main__":
-    print(extraer_cursos_coursera(cadenas_busqueda_pedagogica))
+    programar_tarea()
 
     while True:
         schedule.run_pending()
