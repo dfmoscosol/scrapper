@@ -4,8 +4,9 @@ schedule
 time
 datetime
 psycopg2
-sqlalchemy
+SQLAlchemy
 bs4
 requests
 urllib
 re
+stanza

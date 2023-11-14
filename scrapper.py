@@ -1,15 +1,29 @@
 import schedule
 import time
 import datetime
-import psycopg2
 from sqlalchemy import create_engine, inspect
 from bs4 import BeautifulSoup
 import requests
 import urllib.parse
 import pandas as pd
 import re
-import openai
 import os
+import stanza
+from pathlib import Path
+import nltk
+from nltk.data import find
+from nltk.corpus import stopwords
+
+model_dir = Path(stanza.resources.common.DEFAULT_MODEL_DIR)
+model_path = model_dir / 'es'
+
+if not model_path.exists():
+    stanza.download('es')
+
+try:
+    find("corpora/stopwords")
+except LookupError:
+    nltk.download('stopwords')
 
 cadenas_busqueda_pedagogica = [
     "tic educación",
@@ -332,152 +346,61 @@ def unir_dfs(df):
 
 # Clasifica la descripcion del curso en los tres niveles
 def clasificar_segun_bloom_tres_niveles(descripcion):
+
+    nlp = stanza.Pipeline(lang='es', processors='tokenize,mwt,pos,lemma')
+
+    # Procesar el texto con Stanza
+    doc = nlp(descripcion)
+
+    # Extraer palabras lematizadas excluyendo palabras vacías (stop words)
+    stop_words = set(stopwords.words('spanish'))
+    lemas = [word.lemma for sent in doc.sentences for word in sent.words if word.lemma not in stop_words and word.pos != 'PUNCT']
+
+    print(lemas)
+
     # Definir grupos de verbos clave para cada nivel combinado
     niveles_combinados = {
-        "Explorador": [
-            "Conocer",
-            "Entender",
-            "Recordar",
-            "Enumerar",
-            "Nombrar",
-            "Definir",
-            "Citar",
-            "Explicar",
-            "Comprender",
-            "Identificar",
-            "Resumir",
-            "Describir",
-            "Distinguir",
-            "Señalar",
-            "Repetir",
-            "Comentar",
-            "Ilustrar",
-            "Recopilar",
-            "Registrar",
-            "Comunicar",
-            "Comparar",
-            "Clasificar",
-            "Analizar",
-            "Deducir",
-            "Extraer",
-            "Inferir",
-            "Diferenciar",
-            "Discutir",
-            "Relatar",
-            "Interrogar",
-            "Resaltar",
-            "Reseñar",
-            "Sintetizar",
-            "Generalizar",
-            "Asociar",
-            "Categorizar",
-            "Reconocer",
-            "Interpretar",
-            "Relacionar",
-            "Enunciar",
-            "Caracterizar",
-            "Concluir",
-            "Inferir",
-            "Argumentar",
-            "Examinar",
-            "Elegir",
+        "Explorador": ["recordar", "definir", "listar", "nombrar", "repetir", "memorizar",
+    "reconocer", "recordatorio", "identificar", "recitar", "describir",
+    "discutir", "explicar", "expresar", "indicar", "relatar", "resumir",
+    "paráfrasis", "comparar", "contraste", "demostrar", "interpretar",
+    "ilustrar", "observar", "reportar", "clasificar", "responder",
+    "revisar", "traducir", "entender", "comprender", "contextualizar",
+    "ejemplificar", "aclarar", "comentar", "concluir", "explicativo",
+    "inferir", "sintetizar", "abstracto", "concreto", "deducir",
+    "detectar", "esquematizar", "subrayar", "visualizar"
         ],
-        "Integrador": [
-            "Aplicar",
-            "Utilizar",
-            "Resolver",
-            "Analizar",
-            "Diseñar",
-            "Calcular",
-            "Evaluar",
-            "Comparar",
-            "Contrastar",
-            "Investigar",
-            "Inspeccionar",
-            "Examinar",
-            "Probar",
-            "Experimentar",
-            "Investigar",
-            "Criticar",
-            "Detectar",
-            "Clasificar",
-            "Organizar",
-            "Estructurar",
-            "Desglosar",
-            "Reconstruir",
-            "Diseñar",
-            "Esquematizar",
-            "Diagramar",
-            "Determinar",
-            "Diferenciar",
-            "Sintetizar",
-            "Combinar",
-            "Integrar",
-            "Componer",
-            "Completar",
-            "Calificar",
-            "Justificar",
-            "Defender",
-            "Argumentar",
-            "Verificar",
-            "Comprobar",
-            "Corroborar",
-            "Subdividir",
-            "Describir",
-            "Caracterizar",
-            "Discriminar",
-            "Diagramar",
-            "Concluir",
-            "Planificar",
+        "Integrador": ["aplicar", "utilizar", "ejecutar", "implementar", "realizar", 
+    "demostrar", "operar", "practicar", "emplear", "dramatizar",
+    "adaptar", "usar", "modificar", "manejar", "desarrollar",
+    "analizar", "organizar", "relacionar", "comparar", "distinguir",
+    "examinar", "experimentar", "preguntar", "investigar", "categorizar",
+    "clasificar", "desglosar", "subdividir", "correlacionar", "diferenciar",
+    "discriminar", "dividir", "examinar", "identificar", "ilustrar",
+    "contrastar", "cuestionar", "debatir", "deducir", "descomponer",
+    "enfatizar", "enmarcar", "estructurar", "indagar", "inspeccionar"
         ],
-        "Innovador": [
-            "Crear",
-            "Combinar",
-            "Diseñar",
-            "Planificar",
-            "Organizar",
-            "Sintetizar",
-            "Generar",
-            "Producir",
-            "Inventar",
-            "Construir",
-            "Formular",
-            "Elaborar",
-            "Componer",
-            "Esquematizar",
-            "Modelar",
-            "Valorar",
-            "Evaluar",
-            "Juzgar",
-            "Criticar",
-            "Seleccionar",
-            "Elegir",
-            "Decidir",
-            "Definir",
-            "Argumentar",
-            "Justificar",
-            "Razonar",
-            "Priorizar",
-            "Estimar",
-            "Contrastar",
-            "Analizar",
-            "Sopesar",
-            "Examinar",
-            "Investigar",
-            "Determinar",
+        "Innovador": ["evaluar", "juzgar", "criticar", "decidir", "seleccionar", 
+    "valorar", "revisar", "argumentar", "validar", "priorizar",
+    "clasificar", "calificar", "diagnosticar", "estimar", "calcular",
+    "crear", "diseñar", "formular", "construir", "inventar", 
+    "desarrollar", "componer", "generar", "planificar", "producir",
+    "idear", "originar", "sintetizar", "reformular", "reinventar",
+    "adaptar", "ensamblar", "configurar", "integrar", "modificar",
+    "reorganizar", "reestructurar", "transformar", "innovar", "modelar",
+    "proyectar", "hacer", "fabricar", "elaborar", "concebir", "imaginar"
         ],
     }
 
     # Inicializar el nivel taxonómico como desconocido
     nivel = "Desconocido"
 
-    # Recorrer los niveles combinados y buscar verbos clave
-    for key, verbos_clave in niveles_combinados.items():
-        for verbo in verbos_clave:
-            if verbo.lower() in descripcion.lower():
-                nivel = key
-                break
+    # Contando coincidencias
+    coincidencias = {nivel: sum(palabra in lemas for palabra in palabras_nivel) 
+                    for nivel, palabras_nivel in niveles_combinados.items()}
 
+    # Determinando el nivel con más coincidencias
+    nivel = max(coincidencias, key=coincidencias.get)
     return nivel
 
 
@@ -589,8 +512,9 @@ def cargar_datos():
 
 # Programar la ejecución en el tercer viernes de cada mes a las 12:00 PM
 def programar_tarea():
-    schedule.every().month.on(3).friday.at("12:00").do(cargar_datos)
-
+    #schedule.every().month.on(3).friday.at("12:00").do(cargar_datos)
+    print(    clasificar_segun_bloom_tres_niveles("En este curso se presenta el Modelo Multi Estratégico para la Enseñanza en Línea (MEL). Este modelo, que usa los últimos hallazgos sobre cómo aprendemos (neuroaprendizaje), permite establecer prácticas específicas y concretas que al usarse correctamente aumentan el aprovechamiento académico del estudiante. No solo mejorarás tus cursos en línea y la satisfacción de tus estudiantes de forma significativa, también estarás capacitado para ayudar a otros docentes a hacer lo mismo, ya que conocerás la razones detrás de cada decisión de diseño. Mi interés es que todos pueden crear experiencias educativas efectivas en línea. Se incluye en el curso las presentaciones para que luego de estudiar y aprobar el curso puedas capacitar a otros en este modelo.")
+)
 
 if __name__ == "__main__":
     programar_tarea()
